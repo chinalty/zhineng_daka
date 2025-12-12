@@ -29,4 +29,23 @@ public class JwtUtil {
                 .getBody()
                 .getSubject();
     }
+    
+    public boolean validateToken(String token) {
+        try {
+            Jwts.parserBuilder()
+                .setSigningKey(SECRET.getBytes())
+                .build()
+                .parseClaimsJws(token);
+            return true;
+        } catch (JwtException | IllegalArgumentException e) {
+            return false;
+        }
+    }
+    
+    public Long getUserIdFromToken(String token) {
+        // 这里简化处理，实际应该从数据库查询
+        String username = getUsername(token);
+        // TODO: 从 UserRepository 获取用户ID
+        return null;
+    }
 }
