@@ -1,20 +1,36 @@
 package com.sailtrack.backend.controller;
 
-import com.sailtrack.backend.repository.UserRepository;   // ← 引入顶级接口
-import org.springframework.beans.factory.annotation.Autowired;
+import com.sailtrack.backend.cache.CaptchaCache;
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/test")
+@RequiredArgsConstructor
 public class TestController {
-
-    @Autowired
-    private UserRepository userRepository;   // 使用独立的顶级接口
-
-    @GetMapping("/db")
-    public Map<String, Long> db() {
-        return Map.of("count", userRepository.count());
+    
+    private final CaptchaCache captchaCache;
+    
+    @GetMapping("/captcha-cache")
+    public Map<String, Object> getCaptchaCache() {
+        return Map.of(
+            "ok", true,
+            "data", captchaCache.getAll(),
+            "size", captchaCache.getAll().size()
+        );
+    }
+    
+    @PostMapping("/test-captcha")
+    public Map<String, Object> testCaptcha(@RequestParam String email, 
+                                          @RequestParam String code) {
+        boolean result = captchaCache.verify(email, code);
+        return Map.of(
+            "ok", true,
+            "email", email,
+            "code", code,
+            "result", result
+        );
     }
 }
