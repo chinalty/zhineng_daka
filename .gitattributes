@@ -1,0 +1,5 @@
+/mvnw text eol=lf
+*.cmd text eol=crlf
+*.js.map text eol=lf
+*.vue text eol=lf
+*.js text eol=lf
