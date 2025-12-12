@@ -28,15 +28,16 @@ public class AuthController {
     @PostMapping("/send-captcha")
     public Map<String, Object> sendCaptcha(@RequestParam String email){
         String code = String.format("%04d", new Random().nextInt(10000));
-        mailService.sendCaptcha(email, code);
-        captchaCache.save(email, code);
+        String normalizedEmail = email.toLowerCase();
+        mailService.sendCaptcha(normalizedEmail, code);
+        captchaCache.save(normalizedEmail, code);
         return Map.of("ok", true, "message", "验证码已发送");
     }
     //    注册接口
     @PostMapping("/register")
     public Map<String,Object> register(@Valid @RequestBody RegisterRequest dto) {
         Long userId = authService.register(dto); // ② 一行调 Service
-        return Map.of("ok", true, "code", HttpStatus.BAD_REQUEST.value(),"userId", userId);
+        return Map.of("ok", true, "code", 200, "userId", userId);
     }
 
     //    登录接口
