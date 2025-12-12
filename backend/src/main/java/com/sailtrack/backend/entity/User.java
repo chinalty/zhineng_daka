@@ -18,4 +18,24 @@ public class User {
 
     @Column(unique = true, nullable = false)
     private String email;
+    
+    @Column(name = "real_name", length = 50)
+    private String realName;
+    
+    @Column(name = "department_id")
+    private Long departmentId;
+    
+    @Column(name = "role_id", nullable = false)
+    private Long roleId = 3L; // 默认为普通员工
+    
+    @Column(nullable = false)
+    private Integer status = 1; // 默认启用
+    
+    @Column(name = "created_at", updatable = false)
+    private java.time.LocalDateTime createdAt;
+    
+    @PrePersist
+    protected void onCreate() {
+        createdAt = java.time.LocalDateTime.now();
+    }
 }
