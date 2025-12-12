@@ -26,16 +26,18 @@ public class AuthService {
         if (userRepository.existsByUsername(dto.getUsername())) {
             throw new RuntimeException("用户名已存在");
         }
-        if (!captchaCache.verify(dto.getEmail(), dto.getCaptcha())) {
+        if (!captchaCache.verify(dto.getEmail().toLowerCase(), dto.getCaptcha())) {
             throw new RuntimeException("验证码错误");
         }
-        if (userRepository.existsByEmail(dto.getEmail())){
+        if (userRepository.existsByEmail(dto.getEmail().toLowerCase())){
             throw new RuntimeException("邮箱已使用");
         }
         User user = new User();
         user.setUsername(dto.getUsername());
         user.setEmail(dto.getEmail());
-        user.setPassword(passwordEncoder.encode(dto.getPassword())); // 明文，下一步再加密
+        user.setPassword(passwordEncoder.encode(dto.getPassword()));
+        user.setRoleId(3L); // 默认为普通员工
+        user.setStatus(1); // 默认启用
         return userRepository.save(user).getId();
     }
 
