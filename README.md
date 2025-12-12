@@ -1,5 +1,4 @@
 # 智能打卡系统 (SailTrack)
-
 <div align="center">
 
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.0.0-brightgreen.svg)
@@ -13,7 +12,6 @@
 [功能特性](#功能特性) • [技术架构](#技术架构) • [快速开始](#快速开始) • [API 文档](#api-文档) • [项目文档](#项目文档)
 
 </div>
-
 ---
 
 ## 📋 项目简介
@@ -91,28 +89,28 @@
 
 ### 后端技术栈
 
-| 技术 | 版本 | 说明 |
-|------|------|------|
-| Spring Boot | 4.0.0 | 核心框架 |
-| Java | 17 | 开发语言 |
-| MySQL | 8.0+ | 关系型数据库 |
-| Spring Data JPA | 4.0.0 | ORM 框架 |
-| JWT | 0.11.5 | 身份认证 |
-| Lombok | Latest | 代码简化 |
-| Spring Mail | 4.0.0 | 邮件服务 |
-| BCrypt | Latest | 密码加密 |
-| Maven | 3.6+ | 构建工具 |
+| 技术              | 版本     | 说明     |
+|-----------------|--------|--------|
+| Spring Boot     | 4.0.0  | 核心框架   |
+| Java            | 17     | 开发语言   |
+| MySQL           | 8.0+   | 关系型数据库 |
+| Spring Data JPA | 4.0.0  | ORM 框架 |
+| JWT             | 0.11.5 | 身份认证   |
+| Lombok          | Latest | 代码简化   |
+| Spring Mail     | 4.0.0  | 邮件服务   |
+| BCrypt          | Latest | 密码加密   |
+| Maven           | 3.6+   | 构建工具   |
 
 ### 前端技术栈（规划）
 
-| 技术 | 版本 | 说明 |
-|------|------|------|
-| Vue.js | 3.x | 前端框架 |
-| Element Plus | Latest | UI 组件库 |
-| Vuex | 4.x | 状态管理 |
-| Vue Router | 4.x | 路由管理 |
-| Axios | Latest | HTTP 客户端 |
-| Vite | Latest | 构建工具 |
+| 技术           | 版本     | 说明       |
+|--------------|--------|----------|
+| Vue.js       | 3.x    | 前端框架     |
+| Element Plus | Latest | UI 组件库   |
+| Vuex         | 4.x    | 状态管理     |
+| Vue Router   | 4.x    | 路由管理     |
+| Axios        | Latest | HTTP 客户端 |
+| Vite         | Latest | 构建工具     |
 
 ### 系统架构
 
