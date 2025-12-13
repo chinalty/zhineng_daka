@@ -276,18 +276,13 @@ export default {
     
     // 计算是否可以打卡
     const canCheckIn = computed(() => {
-      const now = new Date()
-      const hours = now.getHours()
-      const minutes = now.getMinutes()
-      const currentTimeInMinutes = hours * 60 + minutes
-      
-      // 8:00-10:00 可以签到，签到后可以签退
+      // 允许全天签到，超过10点会标记为迟到
       if (!todayAttendance.checkInTime) {
-        return currentTimeInMinutes >= 8 * 60 && currentTimeInMinutes <= 10 * 60
+        return true // 未签到时任何时间都可以签到
       } else if (!todayAttendance.checkOutTime) {
-        return true
+        return true // 已签到未签退时可以签退
       }
-      return false
+      return false // 已签到已签退
     })
     
     // 打卡按钮文字
