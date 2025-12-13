@@ -57,6 +57,21 @@ export const userAPI = {
   // 获取用户信息
   getUserInfo: () => request('/user/info'),
   
+  // 更新个人信息
+  updateProfile: (profileData) => request('/user/update-profile', {
+    method: 'PUT',
+    body: JSON.stringify(profileData)
+  }),
+  
+  // 修改密码
+  changePassword: (passwordData) => request('/user/change-password', {
+    method: 'PUT',
+    body: JSON.stringify(passwordData)
+  }),
+  
+  // 获取用户统计数据
+  getUserStats: () => request('/user/stats'),
+  
   // 获取部门员工列表
   getDepartmentUsers: () => request('/user/department-users'),
   
