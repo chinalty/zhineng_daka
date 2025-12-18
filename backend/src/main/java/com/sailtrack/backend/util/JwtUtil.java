@@ -1,7 +1,9 @@
 package com.sailtrack.backend.util;
 
+import com.sailtrack.backend.repository.UserRepository;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
@@ -9,21 +11,30 @@ import java.util.Date;
 @Component
 public class JwtUtil {
 
-    private static final String SECRET = "sailTrack2025SecretKeyForJWTSigning";
-    private static final long EXPIRATION = 1000 * 60 * 60; // 1 小时
+    @Value("${JWT_SECRET:sailTrack2025SecretKeyForJWTSigning}")
+    private String secret;
+    
+    @Value("${JWT_EXPIRATION:3600000}")
+    private long expiration;
+    
+    private final UserRepository userRepository;
+    
+    public JwtUtil(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
 
     public String generate(String username) {
         return Jwts.builder()
                 .setSubject(username)
                 .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION))
-                .signWith(Keys.hmacShaKeyFor(SECRET.getBytes()))
+                .setExpiration(new Date(System.currentTimeMillis() + expiration))
+                .signWith(Keys.hmacShaKeyFor(secret.getBytes()))
                 .compact();
     }
 
     public String getUsername(String token) {
         return Jwts.parserBuilder()
-                .setSigningKey(SECRET.getBytes())
+                .setSigningKey(secret.getBytes())
                 .build()
                 .parseClaimsJws(token)
                 .getBody()
@@ -33,7 +44,7 @@ public class JwtUtil {
     public boolean validateToken(String token) {
         try {
             Jwts.parserBuilder()
-                .setSigningKey(SECRET.getBytes())
+                .setSigningKey(secret.getBytes())
                 .build()
                 .parseClaimsJws(token);
             return true;
@@ -43,9 +54,9 @@ public class JwtUtil {
     }
     
     public Long getUserIdFromToken(String token) {
-        // 这里简化处理，实际应该从数据库查询
         String username = getUsername(token);
-        // TODO: 从 UserRepository 获取用户ID
-        return null;
+        return userRepository.findByUsername(username)
+                .map(user -> user.getId())
+                .orElseThrow(() -> new RuntimeException("用户不存在"));
     }
 }

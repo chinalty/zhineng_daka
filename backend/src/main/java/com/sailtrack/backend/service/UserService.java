@@ -1,100 +1,119 @@
 package com.sailtrack.backend.service;
 
-import com.sailtrack.backend.dto.UserResponse;
-import com.sailtrack.backend.entity.Department;
-import com.sailtrack.backend.entity.Role;
+import com.sailtrack.backend.dto.ChangePasswordRequest;
+import com.sailtrack.backend.dto.UpdateProfileRequest;
 import com.sailtrack.backend.entity.User;
-import com.sailtrack.backend.repository.DepartmentRepository;
-import com.sailtrack.backend.repository.RoleRepository;
 import com.sailtrack.backend.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Map;
+import java.util.Optional;
 
 @Service
-@RequiredArgsConstructor
 public class UserService {
-    
     private final UserRepository userRepository;
-    private final RoleRepository roleRepository;
-    private final DepartmentRepository departmentRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final com.sailtrack.backend.repository.AttendanceRecordRepository attendanceRecordRepository;
+    private final com.sailtrack.backend.repository.LeaveRecordRepository leaveRecordRepository;
     
-    public UserResponse getUserInfo(Long userId) {
-        User user = userRepository.findById(userId)
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder,
+                       com.sailtrack.backend.repository.AttendanceRecordRepository attendanceRecordRepository,
+                       com.sailtrack.backend.repository.LeaveRecordRepository leaveRecordRepository) {
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.attendanceRecordRepository = attendanceRecordRepository;
+        this.leaveRecordRepository = leaveRecordRepository;
+    }
+    
+    public User getUserById(Long userId) {
+        return userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("用户不存在"));
-        
-        UserResponse response = new UserResponse();
-        response.setId(user.getId());
-        response.setUsername(user.getUsername());
-        response.setEmail(user.getEmail());
-        response.setRealName(user.getRealName());
-        response.setDepartmentId(user.getDepartmentId());
-        response.setRoleId(user.getRoleId());
-        response.setStatus(user.getStatus());
-        
-        // 获取角色名称
-        if (user.getRoleId() != null) {
-            roleRepository.findById(user.getRoleId())
-                    .ifPresent(role -> response.setRoleName(role.getRoleName()));
-        }
-        
-        // 获取部门名称
-        if (user.getDepartmentId() != null) {
-            departmentRepository.findById(user.getDepartmentId())
-                    .ifPresent(dept -> response.setDepartmentName(dept.getDepartmentName()));
-        }
-        
-        // 状态文本
-        response.setStatusText(user.getStatus() == 1 ? "启用" : "禁用");
-        
-        return response;
     }
     
-    public List<UserResponse> getDepartmentUsers(Long managerId) {
-        User manager = userRepository.findById(managerId)
-                .orElseThrow(() -> new RuntimeException("管理员不存在"));
+    public User getUserByUsername(String username) {
+        return userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("用户不存在"));
+    }
+    
+    @Transactional
+    public void updateProfile(Long userId, UpdateProfileRequest request) {
+        User user = getUserById(userId);
         
-        if (!manager.getRoleId().equals(2L)) {
-            throw new RuntimeException("无权限查看部门员工");
-        }
-        
-        List<User> users = userRepository.findByDepartmentIdAndStatus(manager.getDepartmentId(), 1);
-        
-        return users.stream().map(user -> {
-            UserResponse response = new UserResponse();
-            response.setId(user.getId());
-            response.setUsername(user.getUsername());
-            response.setEmail(user.getEmail());
-            response.setRealName(user.getRealName());
-            response.setDepartmentId(user.getDepartmentId());
-            response.setRoleId(user.getRoleId());
-            response.setStatus(user.getStatus());
-            
-            // 获取角色名称
-            if (user.getRoleId() != null) {
-                roleRepository.findById(user.getRoleId())
-                        .ifPresent(role -> response.setRoleName(role.getRoleName()));
+        // 检查用户名唯一性（排除自己）
+        if (!user.getUsername().equals(request.getUsername())) {
+            if (userRepository.existsByUsername(request.getUsername())) {
+                throw new RuntimeException("用户名已存在");
             }
-            
-            // 获取部门名称
-            if (user.getDepartmentId() != null) {
-                departmentRepository.findById(user.getDepartmentId())
-                        .ifPresent(dept -> response.setDepartmentName(dept.getDepartmentName()));
+        }
+        
+        // 检查邮箱唯一性（排除自己）
+        if (!user.getEmail().equals(request.getEmail())) {
+            if (userRepository.existsByEmail(request.getEmail())) {
+                throw new RuntimeException("邮箱已存在");
             }
-            
-            response.setStatusText(user.getStatus() == 1 ? "启用" : "禁用");
-            
-            return response;
-        }).collect(Collectors.toList());
+        }
+        
+        user.setUsername(request.getUsername());
+        user.setRealName(request.getRealName());
+        user.setEmail(request.getEmail());
+        
+        userRepository.save(user);
     }
     
-    public List<Department> getAllDepartments() {
-        return departmentRepository.findByStatus(1);
+    @Transactional
+    public void changePassword(Long userId, ChangePasswordRequest request) {
+        User user = getUserById(userId);
+        
+        // 验证当前密码
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            throw new RuntimeException("当前密码不正确");
+        }
+        
+        // 验证新密码和确认密码
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new RuntimeException("新密码和确认密码不一致");
+        }
+        
+        // 更新密码
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
     }
     
-    public List<Role> getAllRoles() {
-        return roleRepository.findAll();
+    public Map<String, Object> getUserStats(Long userId) {
+        Map<String, Object> stats = new HashMap<>();
+        
+        // 总出勤天数（所有签到的天数，包括迟到、早退）
+        long totalDays = attendanceRecordRepository.countTotalAttendanceDays(userId);
+        
+        // 迟到次数
+        long lateDays = attendanceRecordRepository.countLateByUserId(userId);
+        
+        // 请假天数（已批准的请假）
+        Double leaveDays = leaveRecordRepository.sumLeaveDaysByUserId(userId);
+        
+        // 工作时长（小时）
+        Double workHours = attendanceRecordRepository.sumWorkHoursByUserId(userId);
+        
+        stats.put("totalDays", totalDays);
+        stats.put("lateDays", lateDays);
+        stats.put("leaveDays", leaveDays != null ? leaveDays : 0);
+        stats.put("workHours", workHours != null ? Math.round(workHours * 10) / 10.0 : 0);
+        
+        return stats;
+    }
+    
+    public List<User> getDepartmentUsers(Long departmentId) {
+        return userRepository.findByDepartmentId(departmentId);
+    }
+    
+    @Transactional
+    public void updateFaceImage(Long userId, String faceImageUrl) {
+        User user = getUserById(userId);
+        user.setFaceImageUrl(faceImageUrl);
+        userRepository.save(user);
     }
 }

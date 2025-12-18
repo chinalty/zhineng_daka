@@ -60,6 +60,20 @@
                 size="large">
               </el-input>
             </el-form-item>
+            <el-form-item prop="departmentId">
+              <el-select 
+                v-model="registerForm.departmentId" 
+                placeholder="选择部门" 
+                size="large"
+                style="width: 100%">
+                <el-option 
+                  v-for="dept in departments" 
+                  :key="dept.id" 
+                  :label="dept.name" 
+                  :value="dept.id">
+                </el-option>
+              </el-select>
+            </el-form-item>
             <el-form-item prop="password">
               <el-input 
                 v-model="registerForm.password" 
@@ -127,10 +141,10 @@
 </template>
 
 <script>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { authAPI } from '../services/api'
+import { authAPI, userAPI } from '../services/api'
 
 export default {
   name: 'Login',
@@ -142,6 +156,7 @@ export default {
     const captchaDisabled = ref(false)
     const captchaText = ref('发送验证码')
     const captchaTimer = ref(null)
+    const departments = ref([])
     
     const loginFormRef = ref(null)
     const registerFormRef = ref(null)
@@ -156,6 +171,7 @@ export default {
     const registerForm = reactive({
       username: '',
       email: '',
+      departmentId: null,
       password: '',
       confirmPassword: '',
       captcha: ''
@@ -182,9 +198,12 @@ export default {
         { required: true, message: '请输入邮箱地址', trigger: 'blur' },
         { type: 'email', message: '请输入正确的邮箱地址', trigger: 'blur' }
       ],
+      departmentId: [
+        { required: true, message: '请选择部门', trigger: 'change' }
+      ],
       password: [
         { required: true, message: '请输入密码', trigger: 'blur' },
-        { min: 6, message: '密码长度至少6位', trigger: 'blur' }
+        { min: 8, max: 30, message: '密码长度在8到30个字符', trigger: 'blur' }
       ],
       confirmPassword: [
         { required: true, message: '请确认密码', trigger: 'blur' },
@@ -270,6 +289,7 @@ export default {
             const response = await authAPI.register({
               username: registerForm.username,
               email: registerForm.email,
+              departmentId: registerForm.departmentId,
               password: registerForm.password,
               captcha: registerForm.captcha
             })
@@ -292,6 +312,19 @@ export default {
       })
     }
     
+    // 加载部门列表
+    onMounted(async () => {
+      try {
+        const response = await fetch('http://localhost:8080/api/user/departments')
+        const data = await response.json()
+        if (data.ok) {
+          departments.value = data.data
+        }
+      } catch (error) {
+        console.error('加载部门列表失败:', error)
+      }
+    })
+    
     return {
       activeTab,
       loginForm,
@@ -304,6 +337,7 @@ export default {
       registerLoading,
       captchaDisabled,
       captchaText,
+      departments,
       handleLogin,
       sendCaptcha,
       handleRegister

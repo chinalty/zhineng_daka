@@ -6,7 +6,6 @@ import com.sailtrack.backend.dto.LoginRequest;
 import com.sailtrack.backend.dto.RegisterRequest;
 import com.sailtrack.backend.service.AuthService;
 import com.sailtrack.backend.service.MailService;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,12 +15,17 @@ import java.util.Random;
 
 @RestController
 @RequestMapping("/api/auth")
-@RequiredArgsConstructor
 
 public class AuthController {
     private final AuthService authService;
     private final MailService mailService;
     private final CaptchaCache captchaCache;
+    
+    public AuthController(AuthService authService, MailService mailService, CaptchaCache captchaCache) {
+        this.authService = authService;
+        this.mailService = mailService;
+        this.captchaCache = captchaCache;
+    }
     // 暂时没依赖，先空着，后面注入 AuthService
 
     //    邮箱验证

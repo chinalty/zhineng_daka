@@ -15,17 +15,21 @@ public interface LeaveRecordRepository extends JpaRepository<LeaveRecord, Long> 
     
     List<LeaveRecord> findByStatusOrderByCreatedAtDesc(Integer status);
     
-    @Query("SELECT lr FROM LeaveRecord lr JOIN User u ON lr.userId = u.id " +
-           "WHERE u.departmentId = :departmentId AND lr.status = :status")
-    List<LeaveRecord> findByDepartmentIdAndStatus(@Param("departmentId") Long departmentId, 
-                                                 @Param("status") Integer status);
+    @Query("SELECT lr FROM LeaveRecord lr WHERE lr.status = 0 AND lr.userId IN " +
+           "(SELECT u.id FROM User u WHERE u.departmentId = :departmentId)")
+    List<LeaveRecord> findPendingByDepartmentId(@Param("departmentId") Long departmentId);
     
-    @Query("SELECT COUNT(lr) FROM LeaveRecord lr " +
-           "WHERE lr.userId = :userId AND lr.status = 1 AND " +
-           "((lr.startDate <= :startDate AND lr.endDate >= :startDate) OR " +
-           "(lr.startDate <= :endDate AND lr.endDate >= :endDate) OR " +
-           "(lr.startDate >= :startDate AND lr.endDate <= :endDate))")
-    Long countOverlappingLeaves(@Param("userId") Long userId, 
-                               @Param("startDate") LocalDate startDate, 
-                               @Param("endDate") LocalDate endDate);
+    @Query("SELECT COUNT(lr) FROM LeaveRecord lr WHERE lr.userId = :userId AND lr.status = 1")
+    long countApprovedByUserId(@Param("userId") Long userId);
+    
+    @Query("SELECT SUM(lr.leaveDays) FROM LeaveRecord lr WHERE lr.userId = :userId AND lr.status = 1")
+    Double sumLeaveDaysByUserId(@Param("userId") Long userId);
+    
+    @Query("SELECT COUNT(lr) > 0 FROM LeaveRecord lr WHERE lr.userId = :userId AND lr.startDate <= :endDate AND lr.endDate >= :startDate")
+    boolean existsByUserIdAndDateRange(@Param("userId") Long userId, @Param("endDate") LocalDate endDate, @Param("startDate") LocalDate startDate);
+    
+    @Query("SELECT lr FROM LeaveRecord lr WHERE lr.userId IN " +
+           "(SELECT u.id FROM User u WHERE u.departmentId = :departmentId) " +
+           "ORDER BY lr.createdAt DESC")
+    List<LeaveRecord> findByDepartmentIdOrderByCreatedAtDesc(@Param("departmentId") Long departmentId);
 }

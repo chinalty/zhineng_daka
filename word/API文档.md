@@ -274,6 +274,112 @@ POST /api/auth/send-captcha?email=test@example.com
 
 ---
 
+### 2.3 获取月度考勤记录
+
+**接口地址**: `GET /api/attendance/monthly-records`
+
+**请求参数**:
+- `month` (query, string): 月份，格式 YYYY-MM，例如 2025-12
+
+**成功响应**:
+```json
+{
+  "ok": true,
+  "data": [
+    {
+      "id": 1,
+      "attendanceDate": "2025-12-01",
+      "checkInTime": "2025-12-01T09:00:00",
+      "checkOutTime": "2025-12-01T17:30:00",
+      "workHours": 8.5,
+      "status": 1,
+      "isLate": false,
+      "isEarlyLeave": false
+    },
+    {
+      "id": 2,
+      "attendanceDate": "2025-12-02",
+      "checkInTime": "2025-12-02T09:15:00",
+      "checkOutTime": "2025-12-02T17:45:00",
+      "workHours": 8.5,
+      "status": 2,
+      "isLate": true,
+      "isEarlyLeave": false,
+      "lateMinutes": 15
+    }
+  ]
+}
+```
+
+---
+
+### 2.4 获取月度考勤统计
+
+**接口地址**: `GET /api/attendance/monthly-stats`
+
+**请求参数**:
+- `month` (query, string): 月份，格式 YYYY-MM，例如 2025-12
+
+**成功响应**:
+```json
+{
+  "ok": true,
+  "data": {
+    "month": "2025-12",
+    "totalDays": 22,
+    "workDays": 20,
+    "attendanceDays": 18,
+    "leaveDays": 2,
+    "lateDays": 3,
+    "earlyLeaveDays": 1,
+    "totalWorkHours": 144.5,
+    "averageWorkHours": 8.03,
+    "attendanceRate": 90.0
+  }
+}
+```
+
+---
+
+### 2.5 获取最近考勤记录
+
+**接口地址**: `GET /api/attendance/recent-records`
+
+**请求参数**:
+- `limit` (query, integer, 可选): 返回记录数量，默认10条
+
+**成功响应**:
+```json
+{
+  "ok": true,
+  "data": [
+    {
+      "id": 10,
+      "attendanceDate": "2025-12-12",
+      "checkInTime": "2025-12-12T09:00:00",
+      "checkOutTime": "2025-12-12T17:30:00",
+      "workHours": 8.5,
+      "status": 1,
+      "isLate": false,
+      "isEarlyLeave": false
+    },
+    {
+      "id": 9,
+      "attendanceDate": "2025-12-11",
+      "checkInTime": "2025-12-11T09:30:00",
+      "checkOutTime": "2025-12-11T17:45:00",
+      "workHours": 8.25,
+      "status": 2,
+      "isLate": true,
+      "isEarlyLeave": false,
+      "lateMinutes": 30
+    }
+  ]
+}
+```
+
+---
+
 ## 3. 请假模块 (/api/leave)
 
 > **注意**: 请假模块的所有接口都需要在请求头中携带 JWT Token
@@ -619,6 +725,126 @@ POST /api/auth/send-captcha?email=test@example.com
 
 ---
 
+### 4.5 更新个人信息
+
+**接口地址**: `PUT /api/user/update-profile`
+
+**请求体**:
+```json
+{
+  "username": "newusername",
+  "realName": "李四",
+  "email": "newemail@example.com"
+}
+```
+
+**字段说明**:
+- `username` (string, 必填): 用户名，3-30字符
+- `realName` (string, 必填): 真实姓名
+- `email` (string, 必填): 邮箱地址
+
+**成功响应**:
+```json
+{
+  "ok": true,
+  "message": "个人信息更新成功",
+  "data": {
+    "id": 1,
+    "username": "newusername",
+    "email": "newemail@example.com",
+    "realName": "李四",
+    "departmentId": 1,
+    "departmentName": "技术部",
+    "roleId": 3,
+    "roleName": "普通员工",
+    "status": 1
+  }
+}
+```
+
+**失败响应**:
+```json
+{
+  "ok": false,
+  "code": 400,
+  "message": "用户名已存在"
+}
+```
+
+**可能的错误信息**:
+- "用户名已存在"
+- "邮箱已使用"
+- "邮箱格式错误"
+
+---
+
+### 4.6 修改密码
+
+**接口地址**: `PUT /api/user/change-password`
+
+**请求体**:
+```json
+{
+  "currentPassword": "oldpassword123",
+  "newPassword": "newpassword456",
+  "confirmPassword": "newpassword456"
+}
+```
+
+**字段说明**:
+- `currentPassword` (string, 必填): 当前密码
+- `newPassword` (string, 必填): 新密码，至少6字符
+- `confirmPassword` (string, 必填): 确认新密码
+
+**成功响应**:
+```json
+{
+  "ok": true,
+  "message": "密码修改成功"
+}
+```
+
+**失败响应**:
+```json
+{
+  "ok": false,
+  "code": 400,
+  "message": "当前密码错误"
+}
+```
+
+**可能的错误信息**:
+- "当前密码错误"
+- "新密码不能与当前密码相同"
+- "两次输入的新密码不一致"
+- "新密码长度至少为6位"
+
+---
+
+### 4.7 获取用户统计
+
+**接口地址**: `GET /api/user/stats`
+
+**成功响应**:
+```json
+{
+  "ok": true,
+  "data": {
+    "totalAttendanceDays": 18,
+    "totalLeaveDays": 2,
+    "lateCount": 3,
+    "earlyLeaveCount": 1,
+    "totalWorkHours": 144.5,
+    "averageWorkHours": 8.03,
+    "currentMonthAttendance": 15,
+    "currentMonthLeave": 1,
+    "currentMonthWorkHours": 120.5
+  }
+}
+```
+
+---
+
 ## 5. 测试接口 (/api/test)
 
 ### 5.1 查看验证码缓存
@@ -778,6 +1004,18 @@ POST /api/auth/send-captcha?email=test@example.com
 ---
 
 ## 更新日志
+
+### v1.1.0 (2025-12-17)
+- 新增考勤记录查询接口
+  - 月度考勤记录查询 `/api/attendance/monthly-records`
+  - 月度考勤统计 `/api/attendance/monthly-stats`
+  - 最近考勤记录 `/api/attendance/recent-records`
+- 新增用户管理功能接口
+  - 更新个人信息 `/api/user/update-profile`
+  - 修改密码 `/api/user/change-password`
+  - 用户统计信息 `/api/user/stats`
+- 完善接口参数说明和响应示例
+- 更新业务规则说明
 
 ### v1.0.0 (2025-12-12)
 - 初始版本

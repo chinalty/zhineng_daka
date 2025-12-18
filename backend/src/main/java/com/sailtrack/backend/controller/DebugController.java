@@ -2,57 +2,47 @@ package com.sailtrack.backend.controller;
 
 import com.sailtrack.backend.cache.CaptchaCache;
 import com.sailtrack.backend.service.MailService;
-import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/debug")
-@RequiredArgsConstructor
 public class DebugController {
-    
     private final CaptchaCache captchaCache;
     private final MailService mailService;
     
+    public DebugController(CaptchaCache captchaCache, MailService mailService) {
+        this.captchaCache = captchaCache;
+        this.mailService = mailService;
+    }
+    
     @PostMapping("/set-captcha")
-    public Map<String, Object> setCaptcha(@RequestParam String email, 
-                                          @RequestParam String code) {
-        captchaCache.save(email.toLowerCase(), code);
-        return Map.of(
-            "ok", true,
-            "message", "验证码已设置",
-            "email", email.toLowerCase(),
-            "code", code
-        );
+    public Map<String, Object> setCaptcha(@RequestParam String email,
+                                         @RequestParam String code) {
+        String normalizedEmail = email.toLowerCase();
+        captchaCache.save(normalizedEmail, code);
+        return Map.of("ok", true, "message", "验证码已设置");
     }
     
     @PostMapping("/test-email")
-    public Map<String, Object> testEmail(@RequestParam String email, 
+    public Map<String, Object> testEmail(@RequestParam String email,
                                         @RequestParam String code) {
-        try {
-            mailService.sendCaptcha(email.toLowerCase(), code);
-            return Map.of("ok", true, "message", "邮件发送成功");
-        } catch (Exception e) {
-            return Map.of(
-                "ok", false,
-                "message", "邮件发送失败",
-                "error", e.getMessage()
-            );
-        }
+        String normalizedEmail = email.toLowerCase();
+        mailService.sendCaptcha(normalizedEmail, code);
+        return Map.of("ok", true, "message", "测试邮件已发送");
     }
     
     @GetMapping("/check-cache")
     public Map<String, Object> checkCache(@RequestParam String email) {
         String normalizedEmail = email.toLowerCase();
-        boolean exists = captchaCache.getAll().containsKey(normalizedEmail);
-        String code = captchaCache.getAll().get(normalizedEmail);
+        String cachedCode = captchaCache.get(normalizedEmail);
+        boolean exists = cachedCode != null;
         
-        return Map.of(
-            "ok", true,
+        return Map.of("ok", true, "data", Map.of(
             "email", normalizedEmail,
             "exists", exists,
-            "code", code
-        );
+            "code", exists ? cachedCode : null
+        ));
     }
 }

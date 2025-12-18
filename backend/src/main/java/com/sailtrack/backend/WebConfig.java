@@ -22,7 +22,7 @@ public class WebConfig implements WebMvcConfigurer {
     public CorsFilter corsFilter() {
         CorsConfiguration corsConfiguration = new CorsConfiguration();
         corsConfiguration.setAllowCredentials(true);
-        corsConfiguration.setAllowedOrigins(Arrays.asList("http://127.0.0.1:5502", "http://localhost:3000"));
+        corsConfiguration.setAllowedOrigins(Arrays.asList("http://127.0.0.1:5502", "http://localhost:3000", "http://localhost:3001"));
         corsConfiguration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         corsConfiguration.setAllowedHeaders(Arrays.asList("*"));
         corsConfiguration.setExposedHeaders(Arrays.asList("Authorization"));
@@ -37,6 +37,10 @@ public class WebConfig implements WebMvcConfigurer {
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(jwtInterceptor)
                 .addPathPatterns("/api/**")
-                .excludePathPatterns("/api/auth/**", "/api/test/**");
+                .excludePathPatterns(
+                    "/api/auth/**", 
+                    "/api/test/**",
+                    "/api/user/departments"  // 注册时需要访问部门列表
+                );
     }
 }

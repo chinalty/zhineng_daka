@@ -6,20 +6,26 @@ import com.sailtrack.backend.entity.User;
 import com.sailtrack.backend.repository.UserRepository;
 import com.sailtrack.backend.util.JwtUtil;
 import jakarta.transaction.Transactional;
-import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import com.sailtrack.backend.cache.CaptchaCache;
 
 
 @Service
-@RequiredArgsConstructor
 public class AuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final JwtUtil jwtUtil;   // Lombok 自动构造注入
+    private final JwtUtil jwtUtil;
     private final CaptchaCache captchaCache;
+    
+    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, 
+                      JwtUtil jwtUtil, CaptchaCache captchaCache) {
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.jwtUtil = jwtUtil;
+        this.captchaCache = captchaCache;
+    }
 
     @Transactional
     public Long register(RegisterRequest dto) {
@@ -36,7 +42,8 @@ public class AuthService {
         user.setUsername(dto.getUsername());
         user.setEmail(dto.getEmail());
         user.setPassword(passwordEncoder.encode(dto.getPassword()));
-        user.setRoleId(3L); // 默认为普通员工
+        user.setDepartmentId(dto.getDepartmentId()); // 用户选择的部门
+        user.setRoleId(3L); // 默认角色：普通员工
         user.setStatus(1); // 默认启用
         return userRepository.save(user).getId();
     }

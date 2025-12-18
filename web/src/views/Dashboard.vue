@@ -50,6 +50,10 @@
               <el-icon><Check /></el-icon>
               <span>请假审批</span>
             </el-menu-item>
+            <el-menu-item index="profile">
+              <el-icon><User /></el-icon>
+              <span>个人中心</span>
+            </el-menu-item>
           </el-menu>
         </el-aside>
         
@@ -109,15 +113,39 @@
                   </template>
                   <div class="quick-check-in">
                     <div class="time-display">{{ currentTime }}</div>
-                    <el-button 
-                      type="primary" 
-                      size="large" 
-                      @click="handleCheckIn"
-                      :disabled="!canCheckIn"
-                      class="check-in-button">
-                      {{ checkInButtonText }}
-                    </el-button>
-                    <p class="check-in-info">弹性打卡时间：08:00-10:00</p>
+                    <div class="button-group">
+                      <el-button 
+                        v-if="userInfo.faceImageUrl"
+                        type="success" 
+                        size="large" 
+                        @click="handleFaceCheckIn"
+                        :disabled="!canCheckIn"
+                        class="check-in-button face-button">
+                        <el-icon><Camera /></el-icon>
+                        {{ checkInButtonText }}
+                      </el-button>
+                      <el-button 
+                        v-else
+                        type="warning" 
+                        size="large" 
+                        @click="handleGoToProfile"
+                        class="check-in-button">
+                        <el-icon><User /></el-icon>
+                        未注册人像
+                      </el-button>
+                    </div>
+                    <p class="check-in-info" v-if="!todayAttendance.checkInTime">
+                      弹性打卡时间：08:00-10:00
+                    </p>
+                    <p class="check-in-info" v-else-if="!todayAttendance.checkOutTime">
+                      预期签退时间：{{ expectedCheckOutTime }}
+                      <el-tag type="warning" size="small" style="margin-left: 10px;">
+                        请在{{ expectedCheckOutTime }}前签退，否则将记为早退
+                      </el-tag>
+                    </p>
+                    <p class="check-in-info" v-else>
+                      今日考勤已完成
+                    </p>
                   </div>
                 </el-card>
               </el-col>
@@ -159,14 +187,39 @@
         </el-main>
       </el-container>
     </el-container>
+    
+    <!-- 人脸识别打卡对话框 -->
+    <el-dialog 
+      v-model="faceDialogVisible" 
+      title="人脸识别打卡"
+      width="600px"
+      @close="closeFaceDialog">
+      <div class="face-check-in">
+        <div class="camera-container">
+          <video ref="videoRef" autoplay playsinline class="camera-video"></video>
+          <canvas ref="canvasRef" style="display: none;"></canvas>
+        </div>
+        <div class="face-actions">
+          <el-button 
+            type="primary" 
+            size="large" 
+            @click="captureAndCheckIn"
+            :loading="faceChecking">
+            <el-icon><Camera /></el-icon>
+            {{ faceChecking ? '识别中...' : '拍照打卡' }}
+          </el-button>
+          <p class="face-tip">请将面部对准摄像头，点击拍照完成打卡</p>
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script>
 import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { userAPI, attendanceAPI, leaveAPI } from '../services/api'
+import { userAPI, attendanceAPI, leaveAPI, testAPI } from '../services/api'
 import { 
   User, 
   ArrowDown, 
@@ -175,7 +228,8 @@ import {
   Document, 
   Calendar, 
   Check, 
-  DataAnalysis 
+  DataAnalysis,
+  Camera
 } from '@element-plus/icons-vue'
 
 export default {
@@ -188,13 +242,22 @@ export default {
     Document,
     Calendar,
     Check,
-    DataAnalysis
+    DataAnalysis,
+    Camera
   },
   setup() {
     const router = useRouter()
+    const route = useRoute()
     const activeMenu = ref('dashboard')
     const currentTime = ref(new Date().toLocaleTimeString('zh-CN'))
     const timeTimer = ref(null)
+    
+    // 人脸识别相关
+    const faceDialogVisible = ref(false)
+    const videoRef = ref(null)
+    const canvasRef = ref(null)
+    const faceChecking = ref(false)
+    let mediaStream = null
     
     // 用户信息
     const userInfo = reactive({
@@ -204,7 +267,8 @@ export default {
       email: '',
       roleId: null,
       departmentId: null,
-      departmentName: ''
+      departmentName: '',
+      faceImageUrl: null
     })
     
     // 今日考勤信息
@@ -233,6 +297,8 @@ export default {
     // 菜单选择处理
     const handleMenuSelect = (key) => {
       activeMenu.value = key
+      // 跳转到对应页面
+      router.push(`/${key}`)
     }
     
     // 下拉菜单命令处理
@@ -274,6 +340,91 @@ export default {
       }
     }
     
+    // 人脸识别打卡
+    const handleFaceCheckIn = async () => {
+      faceDialogVisible.value = true
+      
+      // 打开摄像头
+      try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({ 
+          video: { width: 640, height: 480 } 
+        })
+        
+        // 等待 DOM 更新
+        setTimeout(() => {
+          if (videoRef.value) {
+            videoRef.value.srcObject = mediaStream
+          }
+        }, 100)
+      } catch (error) {
+        console.error('无法访问摄像头:', error)
+        ElMessage.error('无法访问摄像头，请检查权限设置')
+        faceDialogVisible.value = false
+      }
+    }
+    
+    // 跳转到个人中心
+    const handleGoToProfile = () => {
+      ElMessage.info('请先在个人中心上传人脸照片')
+      router.push('/profile')
+    }
+    
+    // 拍照并打卡
+    const captureAndCheckIn = async () => {
+      if (!videoRef.value || !canvasRef.value) {
+        ElMessage.error('摄像头未就绪')
+        return
+      }
+      
+      faceChecking.value = true
+      
+      try {
+        // 在 canvas 上绘制当前视频帧
+        const canvas = canvasRef.value
+        const video = videoRef.value
+        canvas.width = video.videoWidth
+        canvas.height = video.videoHeight
+        const ctx = canvas.getContext('2d')
+        ctx.drawImage(video, 0, 0)
+        
+        // 将 canvas 转换为 Blob
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.8))
+        
+        // 判断是签到还是签退
+        const type = !todayAttendance.checkInTime ? 1 : 2
+        
+        // 上传识别
+        const response = await attendanceAPI.checkInWithFace(blob, type)
+        
+        if (response.ok) {
+          const action = type === 1 ? '签到' : '签退'
+          ElMessage.success(`人脸识别${action}成功`)
+          
+          // 关闭对话框
+          faceDialogVisible.value = false
+          
+          // 刷新今日考勤信息
+          await loadTodayAttendance()
+        } else {
+          ElMessage.error(response.message || '人脸识别失败')
+        }
+      } catch (error) {
+        console.error('人脸识别打卡失败:', error)
+        ElMessage.error(error.message || '人脸识别打卡失败')
+      } finally {
+        faceChecking.value = false
+      }
+    }
+    
+    // 关闭人脸识别对话框
+    const closeFaceDialog = () => {
+      // 停止摄像头
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(track => track.stop())
+        mediaStream = null
+      }
+    }
+    
     // 计算是否可以打卡
     const canCheckIn = computed(() => {
       // 允许全天签到，超过10点会标记为迟到
@@ -296,6 +447,18 @@ export default {
       }
     })
     
+    // 预期签退时间
+    const expectedCheckOutTime = computed(() => {
+      if (todayAttendance.checkInTime && todayAttendance.expectedCheckOutTime) {
+        const expectedTime = new Date(todayAttendance.expectedCheckOutTime)
+        return expectedTime.toLocaleTimeString('zh-CN', { 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        })
+      }
+      return ''
+    })
+    
     // 获取菜单标题
     const getMenuTitle = (menu) => {
       const titles = {
@@ -303,7 +466,8 @@ export default {
         attendance: '考勤打卡',
         records: '考勤记录',
         leave: '请假管理',
-        approval: '请假审批'
+        approval: '请假审批',
+        profile: '个人中心'
       }
       return titles[menu] || menu
     }
@@ -322,6 +486,37 @@ export default {
     onMounted(() => {
       // 启动时间更新定时器
       timeTimer.value = setInterval(updateTime, 1000)
+      
+      // 根据当前路由设置 activeMenu
+      const currentPath = route.path
+      const pathToMenu = {
+        '/dashboard': 'dashboard',
+        '/attendance': 'attendance',
+        '/records': 'records',
+        '/leave': 'leave',
+        '/approval': 'approval',
+        '/profile': 'profile'
+      }
+      activeMenu.value = pathToMenu[currentPath] || 'dashboard'
+      
+      // 检查token状态
+      const token = localStorage.getItem('token')
+      console.log('Dashboard mounted - 当前token状态:', token ? '存在' : '不存在')
+      if (token) {
+        console.log('Token内容预览:', token.substring(0, 50) + '...')
+        
+        // 检查token是否过期（简单检查）
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]))
+          const exp = payload.exp * 1000 // 转换为毫秒
+          const now = Date.now()
+          console.log('Token过期时间:', new Date(exp).toLocaleString())
+          console.log('当前时间:', new Date(now).toLocaleString())
+          console.log('Token是否过期:', now > exp ? '已过期' : '有效')
+        } catch (e) {
+          console.error('解析token失败:', e)
+        }
+      }
       
       // 加载所有数据
       loadDashboardData()
@@ -357,7 +552,18 @@ export default {
         }
       } catch (error) {
         console.error('加载用户信息失败:', error)
-        ElMessage.error('加载用户信息失败')
+        // 从 token 中提取用户名作为降级方案
+        try {
+          const token = localStorage.getItem('token')
+          if (token) {
+            const payload = JSON.parse(atob(token.split('.')[1]))
+            userInfo.username = payload.sub || '用户'
+          }
+        } catch (e) {
+          console.error('解析token失败:', e)
+          userInfo.username = '用户'
+        }
+        // 不显示错误提示，避免影响用户体验
       }
     }
     
@@ -492,9 +698,17 @@ export default {
       recentRecords,
       canCheckIn,
       checkInButtonText,
+      expectedCheckOutTime,
+      faceDialogVisible,
+      videoRef,
+      canvasRef,
+      faceChecking,
       handleMenuSelect,
       handleCommand,
-      handleCheckIn,
+      handleFaceCheckIn,
+      handleGoToProfile,
+      captureAndCheckIn,
+      closeFaceDialog,
       getMenuTitle,
       getStatusType,
       loadDashboardData
@@ -593,10 +807,22 @@ export default {
   margin-bottom: 20px;
 }
 
-.check-in-button {
+.button-group {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
   margin-bottom: 15px;
+}
+
+.check-in-button {
   padding: 12px 30px;
   font-size: 16px;
+  flex: 1;
+  max-width: 200px;
+}
+
+.face-button {
+  margin-left: 0;
 }
 
 .check-in-info {
@@ -609,6 +835,36 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+/* 人脸识别对话框 */
+.face-check-in {
+  text-align: center;
+}
+
+.camera-container {
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto 20px;
+  background-color: #000;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.camera-video {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.face-actions {
+  text-align: center;
+}
+
+.face-tip {
+  margin-top: 10px;
+  color: #909399;
+  font-size: 14px;
 }
 
 /* 响应式设计 */

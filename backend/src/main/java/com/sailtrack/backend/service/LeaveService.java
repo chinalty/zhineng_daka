@@ -5,41 +5,50 @@ import com.sailtrack.backend.dto.LeaveRequest;
 import com.sailtrack.backend.entity.LeaveRecord;
 import com.sailtrack.backend.entity.User;
 import com.sailtrack.backend.repository.LeaveRecordRepository;
-import com.sailtrack.backend.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
+import java.math.BigDecimal;
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 @Service
-@RequiredArgsConstructor
 public class LeaveService {
-    
     private final LeaveRecordRepository leaveRecordRepository;
-    private final UserRepository userRepository;
+    private final UserService userService;
+    
+    public LeaveService(LeaveRecordRepository leaveRecordRepository, UserService userService) {
+        this.leaveRecordRepository = leaveRecordRepository;
+        this.userService = userService;
+    }
     
     @Transactional
     public Long applyLeave(Long userId, LeaveRequest request) {
-        // 检查请假时间是否重叠
-        Long overlappingCount = leaveRecordRepository.countOverlappingLeaves(
-            userId, request.getStartDate(), request.getEndDate());
+        User user = userService.getUserById(userId);
         
-        if (overlappingCount > 0) {
-            throw new RuntimeException("请假时间与已有请假记录重叠");
+        // 检查日期范围是否有冲突
+        if (leaveRecordRepository.existsByUserIdAndDateRange(
+                userId, request.getEndDate(), request.getStartDate())) {
+            throw new RuntimeException("请假日期范围内已有请假记录");
         }
+        
+        // 计算请假天数（排除周末）
+        long leaveDays = calculateWorkingDays(request.getStartDate(), request.getEndDate());
         
         LeaveRecord leaveRecord = new LeaveRecord();
         leaveRecord.setUserId(userId);
         leaveRecord.setLeaveType(request.getLeaveType());
         leaveRecord.setStartDate(request.getStartDate());
         leaveRecord.setEndDate(request.getEndDate());
-        leaveRecord.setLeaveDays(request.getLeaveDays());
+        leaveRecord.setLeaveDays(BigDecimal.valueOf(leaveDays));
         leaveRecord.setReason(request.getReason());
         leaveRecord.setStatus(0); // 待审批
+        leaveRecord.setCreatedAt(java.time.LocalDateTime.now());
         
-        return leaveRecordRepository.save(leaveRecord).getId();
+        LeaveRecord saved = leaveRecordRepository.save(leaveRecord);
+        return saved.getId();
     }
     
     @Transactional
@@ -48,45 +57,55 @@ public class LeaveService {
                 .orElseThrow(() -> new RuntimeException("请假记录不存在"));
         
         if (leaveRecord.getStatus() != 0) {
-            throw new RuntimeException("该请假已处理");
-        }
-        
-        // 检查审批权限（部门经理可以审批本部门员工的请假）
-        User approver = userRepository.findById(approverId)
-                .orElseThrow(() -> new RuntimeException("审批人不存在"));
-        
-        User leaveUser = userRepository.findById(leaveRecord.getUserId())
-                .orElseThrow(() -> new RuntimeException("请假用户不存在"));
-        
-        if (!approver.getRoleId().equals(2L) || !approver.getDepartmentId().equals(leaveUser.getDepartmentId())) {
-            throw new RuntimeException("无审批权限");
+            throw new RuntimeException("该请假记录已处理");
         }
         
         leaveRecord.setStatus(request.getStatus());
         leaveRecord.setApproverId(approverId);
-        leaveRecord.setApprovalTime(LocalDateTime.now());
         leaveRecord.setApprovalRemark(request.getRemark());
+        leaveRecord.setApprovalTime(java.time.LocalDateTime.now());
         
         leaveRecordRepository.save(leaveRecord);
     }
     
-    public List<LeaveRecord> getUserLeaveRecords(Long userId) {
+    public List<LeaveRecord> getMyLeaveRecords(Long userId) {
         return leaveRecordRepository.findByUserIdOrderByCreatedAtDesc(userId);
     }
     
     public List<LeaveRecord> getPendingApprovals(Long managerId) {
-        User manager = userRepository.findById(managerId)
-                .orElseThrow(() -> new RuntimeException("管理员不存在"));
+        User manager = userService.getUserById(managerId);
         
-        if (!manager.getRoleId().equals(2L)) {
-            throw new RuntimeException("无审批权限");
+        // 只有部门经理可以审批本部门的请假
+        if (manager.getRoleId() != 2) { // 非部门经理
+            return List.of();
         }
         
-        return leaveRecordRepository.findByDepartmentIdAndStatus(manager.getDepartmentId(), 0);
+        return leaveRecordRepository.findPendingByDepartmentId(manager.getDepartmentId());
     }
     
-    public LeaveRecord getLeaveRecord(Long leaveId) {
+    public LeaveRecord getLeaveDetail(Long leaveId) {
         return leaveRecordRepository.findById(leaveId)
                 .orElseThrow(() -> new RuntimeException("请假记录不存在"));
+    }
+    
+    private long calculateWorkingDays(LocalDate startDate, LocalDate endDate) {
+        long days = ChronoUnit.DAYS.between(startDate, endDate) + 1;
+        long workingDays = 0;
+        
+        for (int i = 0; i < days; i++) {
+            LocalDate currentDate = startDate.plusDays(i);
+            DayOfWeek dayOfWeek = currentDate.getDayOfWeek();
+            
+            // 排除周六日
+            if (dayOfWeek != DayOfWeek.SATURDAY && dayOfWeek != DayOfWeek.SUNDAY) {
+                workingDays++;
+            }
+        }
+        
+        return workingDays;
+    }
+    
+    public List<LeaveRecord> getDepartmentLeaveRecords(Long departmentId) {
+        return leaveRecordRepository.findByDepartmentIdOrderByCreatedAtDesc(departmentId);
     }
 }

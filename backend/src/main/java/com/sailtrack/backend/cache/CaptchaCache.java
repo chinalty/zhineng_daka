@@ -57,4 +57,12 @@ public class CaptchaCache {
     public Map<String, String> getAll() {
         return store;
     }
+    
+    /**
+     * 获取指定邮箱的验证码（调试用）
+     */
+    public String get(String email) {
+        String normalizedEmail = email.toLowerCase();
+        return store.get(normalizedEmail);
+    }
 }

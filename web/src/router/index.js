@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHistory, createWebHashHistory } from 'vue-router'
 import Home from '../views/Home.vue'
 import Login from '../views/Login.vue'
 
@@ -18,11 +18,41 @@ const routes = [
     name: 'Dashboard',
     component: () => import('../views/Dashboard.vue'),
     meta: { requiresAuth: true }
+  },
+  {
+    path: '/attendance',
+    name: 'Attendance',
+    component: () => import('../views/Attendance.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/records',
+    name: 'Records',
+    component: () => import('../views/Records.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/leave',
+    name: 'Leave',
+    component: () => import('../views/Leave.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/approval',
+    name: 'Approval',
+    component: () => import('../views/Approval.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/profile',
+    name: 'Profile',
+    component: () => import('../views/Profile.vue'),
+    meta: { requiresAuth: true }
   }
 ]
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHashHistory(),
   routes
 })
 

@@ -14,14 +14,23 @@ import java.util.Optional;
 public interface AttendanceRecordRepository extends JpaRepository<AttendanceRecord, Long> {
     Optional<AttendanceRecord> findByUserIdAndAttendanceDate(Long userId, LocalDate date);
     
+    List<AttendanceRecord> findByUserIdOrderByAttendanceDateDesc(Long userId);
+    
     List<AttendanceRecord> findByUserIdAndAttendanceDateBetweenOrderByAttendanceDateDesc(
-        Long userId, LocalDate startDate, LocalDate endDate);
+            Long userId, LocalDate startDate, LocalDate endDate);
     
-    @Query("SELECT ar FROM AttendanceRecord ar JOIN User u ON ar.userId = u.id " +
-           "WHERE u.departmentId = :departmentId AND ar.attendanceDate = :date")
-    List<AttendanceRecord> findByDepartmentIdAndDate(@Param("departmentId") Long departmentId, 
-                                                    @Param("date") LocalDate date);
+    @Query("SELECT COUNT(ar) FROM AttendanceRecord ar WHERE ar.userId = :userId AND ar.status = 1")
+    long countByUserIdAndNormalStatus(@Param("userId") Long userId);
     
-    List<AttendanceRecord> findByAttendanceDateBetweenOrderByAttendanceDateDesc(
-        LocalDate startDate, LocalDate endDate);
+    @Query("SELECT COUNT(ar) FROM AttendanceRecord ar WHERE ar.userId = :userId AND ar.checkInTime IS NOT NULL")
+    long countTotalAttendanceDays(@Param("userId") Long userId);
+    
+    @Query("SELECT COUNT(ar) FROM AttendanceRecord ar WHERE ar.userId = :userId AND ar.isLate = true")
+    long countLateByUserId(@Param("userId") Long userId);
+    
+    @Query("SELECT SUM(ar.workHours) FROM AttendanceRecord ar WHERE ar.userId = :userId AND ar.workHours IS NOT NULL")
+    Double sumWorkHoursByUserId(@Param("userId") Long userId);
+    
+    @Query("SELECT ar FROM AttendanceRecord ar WHERE ar.userId = :userId ORDER BY ar.attendanceDate DESC")
+    List<AttendanceRecord> findRecentByUserId(@Param("userId") Long userId);
 }
