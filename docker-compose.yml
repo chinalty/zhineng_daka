@@ -3,9 +3,12 @@ version: '3.8'
 services:
   # 后端服务
   backend:
+    # 本地构建（开发环境）
     build:
       context: ./backend
       dockerfile: Dockerfile
+    # 使用预构建镜像（生产环境，取消下面注释并注释上面的 build）
+    # image: ghcr.io/chinality/zhineng_daka/backend:latest
     container_name: sailtrack-backend
     ports:
       - "8080:8080"
@@ -40,9 +43,12 @@ services:
 
   # 前端服务
   frontend:
+    # 本地构建（开发环境）
     build:
       context: ./web
       dockerfile: Dockerfile
+    # 使用预构建镜像（生产环境，取消下面注释并注释上面的 build）
+    # image: ghcr.io/chinality/zhineng_daka/frontend:latest
     container_name: sailtrack-frontend
     ports:
       - "80:80"
